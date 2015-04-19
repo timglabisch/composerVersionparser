@@ -47,6 +47,15 @@ func expandStability(stability string) string {
 
 }
 
+func match(regex, value string) (matched bool, values []string) {
+	r, _ := regexp.Compile(regex)
+	if !r.MatchString(value) {
+		return false, []string{}
+	}
+
+	return true, r.FindStringSubmatch(value)
+}
+
 // NormalizeBranch - normalizing a branch name
 func NormalizeBranch(v string) string {
 	branch := strings.Trim(v, " ")
@@ -55,13 +64,8 @@ func NormalizeBranch(v string) string {
 		return Normalize(branch)
 	}
 
-	r, _ := regexp.Compile(`^v?(\d+)(\.(?:\d+|[xX*]))?(\.(?:\d+|[xX*]))?(\.(?:\d+|[xX*]))?$`)
-	if r.MatchString(branch) {
-
-		versions := r.FindStringSubmatch(branch)
-
+	if matched, versions := match(`^v?(\d+)(\.(?:\d+|[xX*]))?(\.(?:\d+|[xX*]))?(\.(?:\d+|[xX*]))?$`, branch); matched { //r.MatchString(branch) {
 		version := ""
-
 		for i := 1; i < 5; i++ {
 
 			if versions[i] != "" {
@@ -89,9 +93,7 @@ func Normalize(v string) string {
 	version := strings.Trim(v, " ")
 
 	// ignore aliases and just assume the alias is required instead of the source
-	r, _ := regexp.Compile(`(?i)^(?:([^,\s]+)) +as +([^,\s]+)$`)
-	if r.MatchString(version) {
-		versions := r.FindStringSubmatch(version)
+	if matched, versions := match(`(?i)^(?:([^,\s]+)) +as +([^,\s]+)$`, version); matched {
 		version = versions[1]
 	}
 
