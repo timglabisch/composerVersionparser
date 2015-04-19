@@ -90,8 +90,32 @@ func Test_Normalized(t *testing.T) {
 	}
 
 	for _, d := range branchNames {
-		if Normalize(d[0]) != d[1] {
-			t.Error(d[0] + " is " + Normalize(d[0]) + " should be " + d[1])
+
+		ok, version := Normalize(d[0])
+
+		if !ok {
+			t.Error("version " + version + " should be a valid version (" + d[0] + ")")
+		}
+
+		if version != d[1] {
+			t.Error(d[0] + " is " + version + " should be " + d[1])
+		}
+	}
+}
+
+func Test_failingNormalized(t *testing.T) {
+	branchNames := []string{
+		"",
+		"a",
+		"1.0.0-meh",
+		"1.0.0.0.0",
+		"feature-foo",
+		"metadata w/ space",
+	}
+
+	for _, d := range branchNames {
+		if ok, version := Normalize(d); ok {
+			t.Error(version + " should not be a valid version")
 		}
 	}
 }

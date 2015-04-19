@@ -66,7 +66,8 @@ func NormalizeBranch(v string) string {
 	branch := strings.Trim(v, " ")
 
 	if branch == "master" || branch == "trunk" || branch == "default" {
-		return Normalize(branch)
+		_, normalized := Normalize(branch)
+		return normalized
 	}
 
 	if matched, versions := match(`^v?(\d+)(\.(?:\d+|[xX*]))?(\.(?:\d+|[xX*]))?(\.(?:\d+|[xX*]))?$`, branch); matched { //r.MatchString(branch) {
@@ -93,7 +94,7 @@ func NormalizeBranch(v string) string {
 }
 
 // Normalize - normalizing a version
-func Normalize(v string) string {
+func Normalize(v string) (ok bool, NormalizedVersion string) {
 
 	version := strings.Trim(v, " ")
 
@@ -109,11 +110,11 @@ func Normalize(v string) string {
 
 	// match master-like branches
 	if wouldMatch(`(?i)^(?:dev-)?(?:master|trunk|default)$`, version) {
-		return "9999999-dev"
+		return true, "9999999-dev"
 	}
 
 	if substr(strings.ToLower(version), 4) == "dev-" {
-		return "dev-" + substrLast(version, len(version)-4)
+		return true, "dev-" + substrLast(version, len(version)-4)
 	}
 
 	// instead of index using directly the stability
@@ -134,13 +135,10 @@ func Normalize(v string) string {
 	}
 
 	// add version modifiers if a version was matched
-	if index != 0 {
-		if versions[index] != "" {
-			if versions[index] == "stable" {
-				return version
-			}
-
-			// expand ...
+	if matched && index != 0 {
+		if versions[index] == "stable" {
+			return true, version
+		} else if versions[index] != "" {
 			version = version + "-" + expandStability(versions[index]) + ifNotEmpty(versions[index+1], "")
 		}
 
@@ -148,18 +146,15 @@ func Normalize(v string) string {
 			version = version + "-dev"
 		}
 
-		return version
+		return true, version
 	}
 
 	// match dev branches
-	r7, _ := regexp.Compile(`(?i)(.*?)[.-]?dev$`)
-	if r7.MatchString(version) {
-		versions = r7.FindStringSubmatch(version)
-		return NormalizeBranch(versions[1])
-
+	if matched, versions := match(`(?i)(.*?)[.-]?dev$`, version); matched {
+		return true, NormalizeBranch(versions[1])
 	}
 
-	return "SOME KIND OF EXCEPTION"
+	return false, ""
 }
 
 // ParseStability returns a stability by string
