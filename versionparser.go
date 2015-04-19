@@ -47,6 +47,11 @@ func expandStability(stability string) string {
 
 }
 
+func wouldMatch(regex, value string) bool {
+	r, _ := regexp.Compile(regex)
+	return r.MatchString(value)
+}
+
 func match(regex, value string) (matched bool, values []string) {
 	r, _ := regexp.Compile(regex)
 	if !r.MatchString(value) {
@@ -98,48 +103,34 @@ func Normalize(v string) string {
 	}
 
 	// ignore build metadata
-	r2, _ := regexp.Compile(`(?i)^(?:([^,\s+]+))\+[^\s]+$`)
-	if r2.MatchString(version) {
-		versions := r2.FindStringSubmatch(version)
+	if matched, versions := match(`(?i)^(?:([^,\s+]+))\+[^\s]+$`, version); matched {
 		version = versions[1]
 	}
 
 	// match master-like branches
-	r3, _ := regexp.Compile(`(?i)^(?:dev-)?(?:master|trunk|default)$`)
-	if r3.MatchString(version) {
+	if wouldMatch(`(?i)^(?:dev-)?(?:master|trunk|default)$`, version) {
 		return "9999999-dev"
 	}
 
 	if substr(strings.ToLower(version), 4) == "dev-" {
-
 		return "dev-" + substrLast(version, len(version)-4)
 	}
 
 	// instead of index using directly the stability
 	index := 0
+	matched := false
 	versions := []string{}
 
-	// match classical versioning
-	r4, _ := regexp.Compile(`(?i)^v?(\d{1,3})(\.\d+)?(\.\d+)?(\.\d+)?[._-]?(?:(stable|beta|b|RC|alpha|a|patch|pl|p)(?:[.-]?(\d+))?)?([.-]?dev)?$`)
-	if r4.MatchString(version) {
-		versions = r4.FindStringSubmatch(version)
+	if matched, versions = match(`(?i)^v?(\d{1,3})(\.\d+)?(\.\d+)?(\.\d+)?[._-]?(?:(stable|beta|b|RC|alpha|a|patch|pl|p)(?:[.-]?(\d+))?)?([.-]?dev)?$`, version); matched {
 		version = versions[1] + ifNotEmpty(versions[2], ".0") + ifNotEmpty(versions[3], ".0") + ifNotEmpty(versions[4], ".0")
 		index = 5
-	} else {
-		r5, _ := regexp.Compile(`(?i)^v?(\d{4}(?:[.:-]?\d{2}){1,6}(?:[.:-]?\d{1,3})?)[._-]?(?:(stable|beta|b|RC|alpha|a|patch|pl|p)(?:[.-]?(\d+))?)?([.-]?dev)?$`)
-		if r5.MatchString(version) {
-			versions = r5.FindStringSubmatch(version)
-			replace, _ := regexp.Compile(`\D`)
-			version = replace.ReplaceAllString(versions[1], "-")
-			index = 2
-		} else {
-			r6, _ := regexp.Compile(`(?i)^v?(\d{4,})(\.\d+)?(\.\d+)?(\.\d+)?[._-]?(?:(stable|beta|b|RC|alpha|a|patch|pl|p)(?:[.-]?(\d+))?)?([.-]?dev)?$`)
-			if r6.MatchString(version) {
-				versions = r6.FindStringSubmatch(version)
-				version = versions[1] + ifNotEmpty(versions[2], ".0") + ifNotEmpty(versions[3], ".0") + ifNotEmpty(versions[4], ".0")
-				index = 5
-			}
-		}
+	} else if matched, versions = match(`(?i)^v?(\d{4}(?:[.:-]?\d{2}){1,6}(?:[.:-]?\d{1,3})?)[._-]?(?:(stable|beta|b|RC|alpha|a|patch|pl|p)(?:[.-]?(\d+))?)?([.-]?dev)?$`, version); matched {
+		replace, _ := regexp.Compile(`\D`)
+		version = replace.ReplaceAllString(versions[1], "-")
+		index = 2
+	} else if matched, versions = match(`(?i)^v?(\d{4,})(\.\d+)?(\.\d+)?(\.\d+)?[._-]?(?:(stable|beta|b|RC|alpha|a|patch|pl|p)(?:[.-]?(\d+))?)?([.-]?dev)?$`, version); matched {
+		version = versions[1] + ifNotEmpty(versions[2], ".0") + ifNotEmpty(versions[3], ".0") + ifNotEmpty(versions[4], ".0")
+		index = 5
 	}
 
 	// add version modifiers if a version was matched
